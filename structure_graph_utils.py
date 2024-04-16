@@ -173,10 +173,11 @@ def get_mst_slices(chgcar_input, structure_graph, sublattice_element, n=100):
     return out
 
 def get_mst_slices_from_material_id(material_id, sublattice_element, n=100):
-    chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
-    structure_graph = create_structure_graph(chgcar)
-    try: return get_mst_slices(chgcar, structure_graph, sublattice_element, n=n)
-    except NetworkXNoPath as e:
+    try:
+        chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
+        structure_graph = create_structure_graph(chgcar)
+        return get_mst_slices(chgcar, structure_graph, sublattice_element, n=n)
+    except Exception as e:
         print(material_id, e)
         return np.nan
 

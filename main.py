@@ -1,11 +1,9 @@
 from structure_graph_utils import *
-
+from networkx.exception import NetworkXNoPath # return bad metric if no path can be found!
+import pandas as pd
 
 if __name__ == "__main__":
-    structure_graph, chgcar = create_structure_graph("mp-25")
-    element = structure_graph.structure.elements[0].name
-    # structure_graph.graph = sublattice_minimum_spanning_tree(structure_graph.graph, element)
-    show_structure_graph(structure_graph, frac_coords=True, label=True)
-    # with MPRester("JnHWrxVLfsx0yXzJa96wMIbC0s2Gom0C") as mpr:
-    #     docs = mpr.summary.search(material_ids=["mp-7"], fields=["material_id", "nsites", "nelements"])
-    #     print(docs)
+    df = pd.read_csv("data/df_material.csv", index_col="material_id")
+    df = df[["formula", "sublattice_element"]]
+    df = get_mst_slices_from_material_ids(df)
+    df.to_csv("data/df_slices.csv")
