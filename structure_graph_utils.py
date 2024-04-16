@@ -15,22 +15,22 @@ from scipy.interpolate import RegularGridInterpolator
 
 CHGCAR_DIRECTORY = Path("D:/materials_project/charge_density/")
 
-def create_structure_graph(material_id: str):
-    chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
-    # neighbour_strategy = MinimumDistanceNN(tol = 1, cutoff=max(chgcar.structure.lattice.abc), get_all_sites=True)
-    neighbour_strategy = CrystalNN(search_cutoff=max(chgcar.structure.lattice.abc))
-    # structure = chgcar.structure.make_supercell((2, 2, 2))
+def create_structure_graph(chgcar):
+    neighbour_strategy = CrystalNN()
     structure = chgcar.structure
+
     structure_graph = StructureGraph.with_local_env_strategy(structure, neighbour_strategy, weights=True)
     structure_graph.graph = nx.Graph(structure_graph.graph) # from dimultigraph to graph!
+
     for u, v, data in structure_graph.graph.edges(data=True):
-        if 'weight' in data:
-            data['weight'] = (data['weight']/5)**4 # put to a power > 1 to discourage direct paths
+        data['weight'] = np.exp(data['weight']/2) # prefer edges with significant wavefunction overlap
+
     for node, data in structure_graph.graph.nodes(data=True):
         site = structure_graph.structure[node]
         data["element"] = site.specie.name
         data["frac_coords"] = site.frac_coords
-    return structure_graph, chgcar
+
+    return structure_graph
 
 def show_structure_graph(structure_graph, frac_coords=False, label=False):
 
@@ -73,7 +73,7 @@ def sublattice_minimum_spanning_tree(graph, element:str):
         inputs = list(combinations(nodes_subset, 2))
         print(len(inputs), " inputs")
         shortest_path = partial(get_shortest_path_and_weight, graph)
-        with Pool(10) as p:
+        with Pool(6) as p:
             for h_edge, path, weight in tqdm(p.imap_unordered(shortest_path, inputs)):
                 h[h_edge[0]][h_edge[1]]["path"] = path
                 h[h_edge[0]][h_edge[1]]["weight"] = weight
@@ -147,3 +147,20 @@ def linear_slices(f_i, f_f, jimage, chgcar_input, n=100):
 
     return out
 
+def get_mst_slices(chgcar, structure_graph, sublattice_element, n=100):
+    structure = chgcar.structure_graph.structure
+    h_mst = sublattice_minimum_spanning_tree(structure_graph.graph, sublattice_element)
+
+    out = np.zeros((h_mst.number_of_edges() ,n))
+    for i, (u, v, data) in enumerate(h_mst.edges()):
+        f_1 = structure.frac_coords[u]
+        f_2 = structure.frac_coords[v]
+        jimage = data["jimage"]
+        out[i] = linear_slice(f_1, f_2, jimage, chgcar)
+
+    return out
+
+def get_mst_slices_from_materials_id(material_id, sublattice_element, n=100):
+    chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
+    structure_graph = create_structure_graph(material_id)
+    return get_mst_slices(chgcar, structure_graph, sublattice_element)
