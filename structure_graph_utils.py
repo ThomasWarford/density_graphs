@@ -12,6 +12,7 @@ from multiprocessing import Pool
 from functools import partial
 from tqdm import tqdm
 from scipy.interpolate import RegularGridInterpolator
+from networkx.exception import NetworkXNoPath
 
 CHGCAR_DIRECTORY = Path("D:/materials_project/charge_density/")
 
@@ -174,7 +175,10 @@ def get_mst_slices(chgcar_input, structure_graph, sublattice_element, n=100):
 def get_mst_slices_from_material_id(material_id, sublattice_element, n=100):
     chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
     structure_graph = create_structure_graph(chgcar)
-    return get_mst_slices(chgcar, structure_graph, sublattice_element, n=n)
+    try: return get_mst_slices(chgcar, structure_graph, sublattice_element, n=n)
+    except NetworkXNoPath as e:
+        print(material_id, e)
+        return np.nan
 
 def wrapped_function(id_element):
         material_id, sublattice_element = id_element
