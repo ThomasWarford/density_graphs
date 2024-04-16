@@ -65,8 +65,8 @@ def get_shortest_path_and_weight(graph, source_target, weight="weight"):
     weight = nx.path_weight(graph, path, weight="weight")
     return source_target, path, weight
 
-def sublattice_minimum_spanning_tree(graph, element:str):
-        """Get a subgraph of minimum total weight that connects all nodes of an element."""
+def sublattice_minimum_spanning_tree_parallel(graph, element:str):
+        """NO LONGER NEEDED: Get a subgraph of minimum total weight that connects all nodes of an element."""
         nodes_subset = [node for node, data in graph.nodes(data=True) if data["element"] == element]
         # Create a complete graph with the shortest paths between nodes in the subset
         h = nx.complete_graph(nodes_subset)
@@ -86,6 +86,28 @@ def sublattice_minimum_spanning_tree(graph, element:str):
                 graph_copy.add_edge(path[i], path[i+1], **graph[path[i]][path[i+1]])
         
         return graph_copy
+
+def sublattice_minimum_spanning_tree(graph, element:str):
+    """Get a subgraph of minimum total weight that connects all nodes of an element."""
+    nodes_subset = [node for node, data in graph.nodes(data=True) if data["element"] == element]
+    # Create a complete graph with the shortest paths between nodes in the subset
+    h = nx.complete_graph(nodes_subset)
+    inputs = list(combinations(nodes_subset, 2))
+    shortest_path = partial(get_shortest_path_and_weight, graph)
+
+    for h_edge, path, weight in map(shortest_path, inputs):
+        h[h_edge[0]][h_edge[1]]["path"] = path
+        h[h_edge[0]][h_edge[1]]["weight"] = weight
+
+    h_mst = nx.minimum_spanning_tree(h)
+    graph_copy = nx.create_empty_copy(graph)
+
+    for u,v,a in h_mst.edges(data=True):
+        path = a["path"]
+        for i in range(len(path)-1):
+            graph_copy.add_edge(path[i], path[i+1], **graph[path[i]][path[i+1]])
+
+    return graph_copy
 
 def linear_slice(f_i, f_f, jimage, chgcar_input, n=100):
     """
