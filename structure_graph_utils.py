@@ -17,7 +17,7 @@ CHGCAR_DIRECTORY = Path("D:/materials_project/charge_density/")
 def create_structure_graph(material_id: str):
     chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
     # neighbour_strategy = MinimumDistanceNN(tol = 1, cutoff=max(chgcar.structure.lattice.abc), get_all_sites=True)
-    neighbour_strategy = CrystalNN()
+    neighbour_strategy = CrystalNN(search_cutoff=max(chgcar.structure.lattice.abc))
     # structure = chgcar.structure.make_supercell((2, 2, 2))
     structure = chgcar.structure
     structure_graph = StructureGraph.with_local_env_strategy(structure, neighbour_strategy, weights=True)
@@ -31,7 +31,7 @@ def create_structure_graph(material_id: str):
         data["frac_coords"] = site.frac_coords
     return structure_graph, chgcar
 
-def show_structure_graph(structure_graph, frac_coords=False):
+def show_structure_graph(structure_graph, frac_coords=False, label=False):
 
     # Get unique color for each element
     elements = structure_graph.structure.elements
@@ -46,8 +46,10 @@ def show_structure_graph(structure_graph, frac_coords=False):
             pos[i] = site.frac_coords
         else:
             pos[i] = site.coords
-            
+
         ax.scatter(*pos[i], color=element_colors[site.specie.name])
+        if label:
+            ax.text(*pos[i], str(i))
 
 
     for i, j in structure_graph.graph.edges:
@@ -84,3 +86,21 @@ def sublattice_minimum_spanning_tree(graph, element:str):
                 graph_copy.add_edge(path[i], path[i+1], weight=graph[path[i]][path[i+1]]["weight"])
         
         return graph_copy
+
+def linear_slice(f_i, f_f, jimage, chgcar_input, N=100):
+    """
+    INPUTS:
+    f_i: starting fractional coordiates, in central unit cell
+    f_f: final fractional coordinate, can be in neighboring cell
+    jimage: (1, 0, 0) for unit cell one a vector away
+    """
+    scale = (3, 3, 3)
+    chgcar = chgcar_input.copy()
+    chgcar.structure = chgcar.create_supecell(scale)
+    chgcar.data["total"] = np.tile(chgcar.data["total"], scale)
+
+    f_1 = (f_1 + (1, 1, 1))/3
+    f_2 = (f_2 + (1, 1, 1) + jimage)/3
+    
+    return chgcar.linear_slice(f_1, f_2, N=N)
+
