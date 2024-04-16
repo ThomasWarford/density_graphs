@@ -116,3 +116,34 @@ def linear_slice(f_i, f_f, jimage, chgcar_input, n=100):
 
     return chgcar.linear_slice(f_i, f_f, n=n)
 
+def linear_slices(f_i, f_f, jimage, chgcar_input, n=100):
+    """
+    INPUTS:
+    f_i: array of starting fractional coordiates, in central unit cell
+    f_f: array of final fractional coordinates, can be in neighboring cell
+    jimage: array of jimages (1, 0, 0) for unit cell one a vector away
+    """
+    scale = (3, 3, 3)
+    chgcar = chgcar_input.copy()
+    chgcar.structure = chgcar.structure.make_supercell(scale)
+    chgcar.data["total"] = np.tile(chgcar.data["total"], scale)
+    # interpolator created during initialization, needs updating
+    chgcar.dim *= np.array(scale)
+    chgcar.xpoints = np.linspace(0.0, 1.0, num=chgcar.dim[0])
+    chgcar.ypoints = np.linspace(0.0, 1.0, num=chgcar.dim[1])
+    chgcar.zpoints = np.linspace(0.0, 1.0, num=chgcar.dim[2])
+    chgcar.interpolator = RegularGridInterpolator(
+            (chgcar.xpoints, chgcar.ypoints, chgcar.zpoints),
+            chgcar.data["total"],
+            bounds_error=True,
+        )
+
+    out = []
+
+    for i, f, image in zip(f_i, f_f, jimage):
+        i = (i + (1, 1, 1))/3
+        f = (f + (1, 1, 1) + image)/3
+        out.append(chgcar.linear_slice(i, f, n=n))
+
+    return out
+
