@@ -11,6 +11,7 @@ from itertools import combinations
 from multiprocessing import Pool
 from functools import partial
 from tqdm import tqdm
+from scipy.interpolate import RegularGridInterpolator
 
 CHGCAR_DIRECTORY = Path("D:/materials_project/charge_density/")
 
@@ -87,7 +88,7 @@ def sublattice_minimum_spanning_tree(graph, element:str):
         
         return graph_copy
 
-def linear_slice(f_i, f_f, jimage, chgcar_input, N=100):
+def linear_slice(f_i, f_f, jimage, chgcar_input, n=100):
     """
     INPUTS:
     f_i: starting fractional coordiates, in central unit cell
@@ -96,11 +97,22 @@ def linear_slice(f_i, f_f, jimage, chgcar_input, N=100):
     """
     scale = (3, 3, 3)
     chgcar = chgcar_input.copy()
-    chgcar.structure = chgcar.create_supecell(scale)
+    chgcar.structure = chgcar.structure.make_supercell(scale)
     chgcar.data["total"] = np.tile(chgcar.data["total"], scale)
+    # interpolator created during initialization, needs updating
+    chgcar.dim *= np.array(scale)
+    chgcar.xpoints = np.linspace(0.0, 1.0, num=chgcar.dim[0])
+    chgcar.ypoints = np.linspace(0.0, 1.0, num=chgcar.dim[1])
+    chgcar.zpoints = np.linspace(0.0, 1.0, num=chgcar.dim[2])
+    chgcar.interpolator = RegularGridInterpolator(
+            (chgcar.xpoints, chgcar.ypoints, chgcar.zpoints),
+            chgcar.data["total"],
+            bounds_error=True,
+        )
 
-    f_1 = (f_1 + (1, 1, 1))/3
-    f_2 = (f_2 + (1, 1, 1) + jimage)/3
-    
-    return chgcar.linear_slice(f_1, f_2, N=N)
+    f_i = (f_i + (1, 1, 1))/3
+    f_f = (f_f + (1, 1, 1) + jimage)/3
+
+
+    return chgcar.linear_slice(f_i, f_f, n=n)
 
