@@ -26,6 +26,12 @@ def test_linear_slices(chgcar):
         n=10)
     assert(np.isclose(out[0], out[1]).all())
 
+def test_view_linear_slices():
+    actual = get_mst_slices_from_material_id("mp-775989", "Fe", n=100)
+    fig, ax = plt.subplots()
+    ax.plot(actual.flatten())
+    plt.show()
+
 def test_mst_slice_regression():
     expected = np.genfromtxt("test_data/mp_172_mst_density.csv", delimiter=",")
     actual = get_mst_slices_from_material_id("mp-172", "Nd", n=100)
@@ -46,4 +52,5 @@ if __name__ == "__main__":
     # test_linear_slice(chgcar)
     # test_linear_slices(chgcar)
     # test_mst_slice_regression()
-    test_mst_slice_parallel()
+    # test_mst_slice_parallel()
+    test_view_linear_slices()
