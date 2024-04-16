@@ -139,18 +139,17 @@ def linear_slices(f_1, f_2, jimage, chgcar_input, n=100):
 
 def get_mst_slices(chgcar_input, structure_graph, sublattice_element, n=100):
     h_mst = sublattice_minimum_spanning_tree(structure_graph.graph, sublattice_element)
-    frac_coords = chgcar.structure.frac_coords
+    frac_coords = chgcar_input.structure.frac_coords
     chgcar = make_supercell(chgcar_input)
     out = np.zeros((h_mst.number_of_edges() ,n))
     for i, (u, v, data) in enumerate(h_mst.edges(data=True)):
-        f_1 = frac_coords[u]
-        f_2 = frac_coords[v]
-        jimage = data["to_jimage"]
-        out[i] = linear_slice(f_1, f_2, jimage, chgcar)
+        f_1 = (frac_coords[u] + (1, 1, 1))/3
+        f_2 = (frac_coords[v] + (1, 1, 1) + data["to_jimage"])/3
+        out[i] = chgcar.linear_slice(f_1, f_2, n=n)
 
     return out
 
 def get_mst_slices_from_materials_id(material_id, sublattice_element, n=100):
     chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
     structure_graph = create_structure_graph(chgcar)
-    return get_mst_slices(chgcar, structure_graph, sublattice_element)
+    return get_mst_slices(chgcar, structure_graph, sublattice_element, n=n)

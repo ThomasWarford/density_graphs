@@ -25,8 +25,14 @@ def test_linear_slices(chgcar):
         n=10)
     assert(np.isclose(out[0], out[1]).all())
 
+def mst_slice_regression_test():
+    expected = np.genfromtxt("test_data/mp_172_mst_density.csv", delimiter=",")
+    actual = get_mst_slices_from_materials_id("mp-172", "Nd", n=100)
+    assert(np.isclose(expected, actual).all())
+
 
 if __name__ == "__main__":
     chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"mp-25.chgcar")
     # test_linear_slice(chgcar)
-    test_linear_slices(chgcar)
+    # test_linear_slices(chgcar)
+    mst_slice_regression_test()
