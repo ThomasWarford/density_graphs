@@ -71,7 +71,6 @@ def sublattice_minimum_spanning_tree(graph, element:str):
         # Create a complete graph with the shortest paths between nodes in the subset
         h = nx.complete_graph(nodes_subset)
         inputs = list(combinations(nodes_subset, 2))
-        print(len(inputs), " inputs")
         shortest_path = partial(get_shortest_path_and_weight, graph)
         with Pool(6) as p:
             for h_edge, path, weight in tqdm(p.imap_unordered(shortest_path, inputs)):
@@ -84,7 +83,7 @@ def sublattice_minimum_spanning_tree(graph, element:str):
         for u,v,a in h_mst.edges(data=True):
             path = a["path"]
             for i in range(len(path)-1):
-                graph_copy.add_edge(path[i], path[i+1], weight=graph[path[i]][path[i+1]]["weight"])
+                graph_copy.add_edge(path[i], path[i+1], **graph[path[i]][path[i+1]])
         
         return graph_copy
 
@@ -95,20 +94,7 @@ def linear_slice(f_i, f_f, jimage, chgcar_input, n=100):
     f_f: final fractional coordinate, can be in neighboring cell
     jimage: (1, 0, 0) for unit cell one a vector away
     """
-    scale = (3, 3, 3)
-    chgcar = chgcar_input.copy()
-    chgcar.structure = chgcar.structure.make_supercell(scale)
-    chgcar.data["total"] = np.tile(chgcar.data["total"], scale)
-    # interpolator created during initialization, needs updating
-    chgcar.dim *= np.array(scale)
-    chgcar.xpoints = np.linspace(0.0, 1.0, num=chgcar.dim[0])
-    chgcar.ypoints = np.linspace(0.0, 1.0, num=chgcar.dim[1])
-    chgcar.zpoints = np.linspace(0.0, 1.0, num=chgcar.dim[2])
-    chgcar.interpolator = RegularGridInterpolator(
-            (chgcar.xpoints, chgcar.ypoints, chgcar.zpoints),
-            chgcar.data["total"],
-            bounds_error=True,
-        )
+    chgcar = make_supercell(chgcar_input)
 
     f_i = (f_i + (1, 1, 1))/3
     f_f = (f_f + (1, 1, 1) + jimage)/3
@@ -116,13 +102,7 @@ def linear_slice(f_i, f_f, jimage, chgcar_input, n=100):
 
     return chgcar.linear_slice(f_i, f_f, n=n)
 
-def linear_slices(f_i, f_f, jimage, chgcar_input, n=100):
-    """
-    INPUTS:
-    f_i: array of starting fractional coordiates, in central unit cell
-    f_f: array of final fractional coordinates, can be in neighboring cell
-    jimage: array of jimages (1, 0, 0) for unit cell one a vector away
-    """
+def make_supercell(chgcar_input):
     scale = (3, 3, 3)
     chgcar = chgcar_input.copy()
     chgcar.structure = chgcar.structure.make_supercell(scale)
@@ -137,30 +117,40 @@ def linear_slices(f_i, f_f, jimage, chgcar_input, n=100):
             chgcar.data["total"],
             bounds_error=True,
         )
+    return chgcar
+
+def linear_slices(f_1, f_2, jimage, chgcar_input, n=100):
+    """
+    INPUTS:
+    f_1: array of starting fractional coordiates, in central unit cell
+    f_2: array of final fractional coordinates, can be in neighboring cell
+    jimage: array of jimages (1, 0, 0) for unit cell one a vector away
+    """
+    chgcar = make_supercell(chgcar_input)
 
     out = []
 
-    for i, f, image in zip(f_i, f_f, jimage):
+    for i, f, image in zip(f_1, f_2, jimage):
         i = (i + (1, 1, 1))/3
         f = (f + (1, 1, 1) + image)/3
         out.append(chgcar.linear_slice(i, f, n=n))
 
     return out
 
-def get_mst_slices(chgcar, structure_graph, sublattice_element, n=100):
-    structure = chgcar.structure_graph.structure
+def get_mst_slices(chgcar_input, structure_graph, sublattice_element, n=100):
     h_mst = sublattice_minimum_spanning_tree(structure_graph.graph, sublattice_element)
-
+    frac_coords = chgcar.structure.frac_coords
+    chgcar = make_supercell(chgcar_input)
     out = np.zeros((h_mst.number_of_edges() ,n))
-    for i, (u, v, data) in enumerate(h_mst.edges()):
-        f_1 = structure.frac_coords[u]
-        f_2 = structure.frac_coords[v]
-        jimage = data["jimage"]
+    for i, (u, v, data) in enumerate(h_mst.edges(data=True)):
+        f_1 = frac_coords[u]
+        f_2 = frac_coords[v]
+        jimage = data["to_jimage"]
         out[i] = linear_slice(f_1, f_2, jimage, chgcar)
 
     return out
 
 def get_mst_slices_from_materials_id(material_id, sublattice_element, n=100):
     chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
-    structure_graph = create_structure_graph(material_id)
+    structure_graph = create_structure_graph(chgcar)
     return get_mst_slices(chgcar, structure_graph, sublattice_element)
