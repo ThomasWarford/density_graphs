@@ -1,5 +1,6 @@
 from structure_graph_utils import *
 import numpy as np
+import pandas as pd
 
 def test_linear_slice(chgcar):
     structure_graph = create_structure_graph(chgcar)
@@ -25,14 +26,24 @@ def test_linear_slices(chgcar):
         n=10)
     assert(np.isclose(out[0], out[1]).all())
 
-def mst_slice_regression_test():
+def test_mst_slice_regression():
     expected = np.genfromtxt("test_data/mp_172_mst_density.csv", delimiter=",")
-    actual = get_mst_slices_from_materials_id("mp-172", "Nd", n=100)
+    actual = get_mst_slices_from_material_id("mp-172", "Nd", n=100)
     assert(np.isclose(expected, actual).all())
+
+def test_mst_slice_parallel():
+    expected = np.genfromtxt("test_data/mp_172_mst_density.csv", delimiter=",")
+    df_input = pd.DataFrame({"material_id":["mp-7", "mp-172"], "sublattice_element": ["S", "Nd"]})
+    df_input.set_index("material_id", inplace=True)
+    output = get_mst_slices_from_material_ids(df_input)
+
+    assert(np.isclose(expected, output.loc["mp-172", "slices"]).all())
+
 
 
 if __name__ == "__main__":
     chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"mp-25.chgcar")
     # test_linear_slice(chgcar)
     # test_linear_slices(chgcar)
-    mst_slice_regression_test()
+    # test_mst_slice_regression()
+    test_mst_slice_parallel()

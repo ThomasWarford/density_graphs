@@ -171,7 +171,26 @@ def get_mst_slices(chgcar_input, structure_graph, sublattice_element, n=100):
 
     return out
 
-def get_mst_slices_from_materials_id(material_id, sublattice_element, n=100):
+def get_mst_slices_from_material_id(material_id, sublattice_element, n=100):
     chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
     structure_graph = create_structure_graph(chgcar)
     return get_mst_slices(chgcar, structure_graph, sublattice_element, n=n)
+
+def wrapped_function(id_element):
+        material_id, sublattice_element = id_element
+        return material_id, get_mst_slices_from_material_id(material_id, sublattice_element)
+
+def get_mst_slices_from_material_ids(df_material, n=100):
+    """INPUTS: 
+    df_material: df indexed by material_id with sublattice_element column.
+    """
+    output = df_material.copy()
+
+    inputs = zip(df_material.index, df_material["sublattice_element"])
+    
+    p = Pool(6)
+    output["slices"] = ""
+    for material_id, slices in tqdm(p.imap_unordered(wrapped_function, inputs), total=len(df_material)):
+        output.at[material_id, "slices"] = slices
+
+    return output
