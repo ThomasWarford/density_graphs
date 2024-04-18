@@ -14,6 +14,7 @@ if __name__ == "__main__":
     
     df = get_mst_slices_from_material_ids(df.iloc[:5], n=30)
     print(df)
+    df.to_csv("data/df_slices.csv")
 
     df = pd.read_csv("data/df_slices.csv", index_col="material_id", converters={"slices": make_array})
     print(df)
