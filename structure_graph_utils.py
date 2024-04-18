@@ -13,6 +13,7 @@ from functools import partial
 from tqdm import tqdm
 from scipy.interpolate import RegularGridInterpolator
 from networkx.exception import NetworkXNoPath
+import json
 
 CHGCAR_DIRECTORY = Path("D:/materials_project/charge_density/")
 
@@ -185,7 +186,7 @@ def wrapped_function(id_element):
         material_id, sublattice_element = id_element
         return material_id, get_mst_slices_from_material_id(material_id, sublattice_element)
 
-def get_mst_slices_from_material_ids(df_material, n=100):
+def get_mst_slices_from_material_ids(df_material, n=30):
     """INPUTS: 
     df_material: df indexed by material_id with sublattice_element column.
     """
@@ -196,6 +197,6 @@ def get_mst_slices_from_material_ids(df_material, n=100):
     p = Pool(6)
     output["slices"] = ""
     for material_id, slices in tqdm(p.imap_unordered(wrapped_function, inputs), total=len(df_material)):
-        output.at[material_id, "slices"] = slices
+        output.at[material_id, "slices"] = json.dumps(slices.to_list())
 
     return output
