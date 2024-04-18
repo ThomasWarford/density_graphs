@@ -197,6 +197,9 @@ def get_mst_slices_from_material_ids(df_material, n=30):
     p = Pool(6)
     output["slices"] = ""
     for material_id, slices in tqdm(p.imap_unordered(wrapped_function, inputs), total=len(df_material)):
-        output.at[material_id, "slices"] = json.dumps(slices.to_list())
+        try:
+            output.at[material_id, "slices"] = json.dumps(slices.to_list())
+        except:
+            continue
 
     return output
