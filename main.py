@@ -3,7 +3,10 @@ from networkx.exception import NetworkXNoPath # return bad metric if no path can
 import pandas as pd
 
 def make_array(json_string):
-    return np.array(json.loads(json_string))
+    try:
+        return np.array(json.loads(json_string))
+    except:
+        return np.nan
 
 if __name__ == "__main__":
     df = pd.read_csv("data/df_material.csv", index_col="material_id")
