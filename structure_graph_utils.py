@@ -34,8 +34,7 @@ def create_structure_graph(chgcar):
 
     return structure_graph
 
-def show_structure_graph(structure_graph, frac_coords=False, label=False):
-
+def show_structure_graph(structure_graph, frac_coords=False, label=False, label_weights=False):
     # Get unique color for each element
     elements = structure_graph.structure.elements
     element_colors = {element.name:color for element,color in
@@ -55,9 +54,12 @@ def show_structure_graph(structure_graph, frac_coords=False, label=False):
             ax.text(*pos[i], str(i))
 
 
-    for i, j in structure_graph.graph.edges:
+    for i, j, data in structure_graph.graph.edges(data=True):
         x_y_z = np.stack([pos[i], pos[j]]).T
         ax.plot(*x_y_z, color="black")
+
+        if label_weights:
+            ax.text(*np.mean((pos[i], pos[j]), axis=0), data["weight"])
 
     plt.show()
 
@@ -217,9 +219,16 @@ def get_linear_slice_fractional_drop(f_i, f_f, jimage, chgcar_input, n=100):
     maximum = max(slice)
     return (maximum - min(slice)) / maximum
 
-def get_fractional_drop_mst_mean_weight(chgcar):
+def get_fractional_drop_mst(chgcar_input, sublattice_element=None):
+    chgcar = chgcar_input.copy()
     neighbour_strategy = MinimumDistanceNN(max(chgcar.structure.lattice.abc)/2)
-    structure = chgcar.structure
+    structure = chgcar.structure.copy()
+
+    if sublattice_element:
+        unwanted_elements = [element.string for element in structure.species]
+        unwanted_elements.remove(sublattice_element)
+
+        structure.remove_species(unwanted_elements)
 
     structure_graph = StructureGraph.with_local_env_strategy(structure, neighbour_strategy, weights=True)
     graph = nx.Graph(structure_graph.graph) # from dimultigraph to graph!
@@ -229,26 +238,24 @@ def get_fractional_drop_mst_mean_weight(chgcar):
         data["element"] = site.specie.name
         data["frac_coords"] = site.frac_coords
 
-    chgcar = make_supercell(chgcar)
+    chgcar = make_supercell(chgcar_input)
 
     for u, v, data in graph.edges(data=True):
-        i = graph.nodes[u]["frac_coords"]
-        f = graph.nodes[v]["frac_coords"]
         image = data["to_jimage"]
-
-        i = (i + (1, 1, 1))/3
-        f = (f + (1, 1, 1) + image)/3
+        i = (graph.nodes[u]["frac_coords"] + (1, 1, 1))/3
+        f = (graph.nodes[v]["frac_coords"] + (1, 1, 1) + image)/3
 
         if max(abs(i) for i in image) <= 1:
             slice = chgcar.linear_slice(i, f, n=100)
             maximum = max(slice)
             data['weight'] = (maximum - min(slice)) / maximum
-            print(max(slice), min(slice))
-            print(data['weight'])
         else:
             data['weight'] = 1e9
 
-    mst = nx.minimum_spanning_tree(graph, weight="weight")
+    return nx.minimum_spanning_tree(graph, weight="weight")
+
+def get_fractional_drop_mst_mean_weight(chgcar):
+    mst = get_fractional_drop_mst(chgcar)
 
     return mst.size("weight") / mst.size(None)
 
