@@ -111,6 +111,9 @@ def sublattice_minimum_spanning_tree(graph, element:str):
 
     return graph_copy
 
+
+
+
 def linear_slice(f_i, f_f, jimage, chgcar_input, n=100):
     """
     INPUTS:
@@ -119,6 +122,9 @@ def linear_slice(f_i, f_f, jimage, chgcar_input, n=100):
     jimage: (1, 0, 0) for unit cell one a vector away
     """
     chgcar = make_supercell(chgcar_input)
+
+    if max((abs(i) for i in jimage)) > 1:
+        return  np.full(n, 1e10)
 
     f_i = (f_i + (1, 1, 1))/3
     f_f = (f_f + (1, 1, 1) + jimage)/3
@@ -202,4 +208,72 @@ def get_mst_slices_from_material_ids(df_material, n=30):
         except:
             continue
 
+    return output
+
+
+
+def get_linear_slice_fractional_drop(f_i, f_f, jimage, chgcar_input, n=100):
+    slice = linear_slice(f_i, f_f, jimage, chgcar_input, n)
+    maximum = max(slice)
+    return (maximum - min(slice)) / maximum
+
+def get_fractional_drop_mst_mean_weight(chgcar):
+    neighbour_strategy = MinimumDistanceNN(max(chgcar.structure.lattice.abc)/2)
+    structure = chgcar.structure
+
+    structure_graph = StructureGraph.with_local_env_strategy(structure, neighbour_strategy, weights=True)
+    graph = nx.Graph(structure_graph.graph) # from dimultigraph to graph!
+
+    for node, data in graph.nodes(data=True):
+        site = structure_graph.structure[node]
+        data["element"] = site.specie.name
+        data["frac_coords"] = site.frac_coords
+
+    chgcar = make_supercell(chgcar)
+
+    for u, v, data in graph.edges(data=True):
+        i = graph.nodes[u]["frac_coords"]
+        f = graph.nodes[v]["frac_coords"]
+        image = data["to_jimage"]
+
+        i = (i + (1, 1, 1))/3
+        f = (f + (1, 1, 1) + image)/3
+
+        if max(abs(i) for i in image) <= 1:
+            slice = chgcar.linear_slice(i, f, n=100)
+            maximum = max(slice)
+            data['weight'] = (maximum - min(slice)) / maximum
+            print(max(slice), min(slice))
+            print(data['weight'])
+        else:
+            data['weight'] = 1e9
+
+    mst = nx.minimum_spanning_tree(graph, weight="weight")
+
+    return mst.size("weight") / mst.size(None)
+
+def get_fractional_drop_mst_mean_weight_from_material_id(id_element):
+    material_id, sublattice_element = id_element
+
+    try:
+        chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
+        return material_id, get_fractional_drop_mst_mean_weight(chgcar)
+    except FileNotFoundError as e:
+        print(material_id, e)
+        return material_id, np.nan
+
+
+
+def get_fractional_drop_msts_from_material_ids(df_material):
+    """INPUTS: 
+    df_material: df indexed by material_id with sublattice_element column.
+    """
+    output = df_material.copy()
+
+    inputs = zip(df_material.index, df_material["sublattice_element"])
+    
+    p = Pool(6)
+    output["slices"] = ""
+    for material_id, average_drop in tqdm(p.imap_unordered(get_fractional_drop_mst_mean_weight_from_material_id, inputs), total=len(df_material)):
+        output.at[material_id, "slices"] = average_drop
     return output
