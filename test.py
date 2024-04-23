@@ -46,12 +46,12 @@ def test_mst_slice_parallel():
     assert(np.isclose(expected, output.loc["mp-172", "slices"]).all())
 
 def test_get_fractional_drop_mst():
-    material_id = "mp-7"
+    material_id = "mp-183"
     chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
     neighbour_strategy = CrystalNN()
 
     structure_graph = StructureGraph.with_local_env_strategy(chgcar.structure, neighbour_strategy, weights=True)
-    structure_graph.graph = get_fractional_drop_mst(chgcar)
+    structure_graph.graph = get_fractional_drop_mst(chgcar, "Cd")
     
     show_structure_graph(structure_graph, frac_coords=True, label=True, label_weights=True)
 

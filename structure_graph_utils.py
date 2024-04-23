@@ -220,14 +220,13 @@ def get_linear_slice_fractional_drop(f_i, f_f, jimage, chgcar_input, n=100):
     return (maximum - min(slice)) / maximum
 
 def get_fractional_drop_mst(chgcar_input, sublattice_element=None):
-    chgcar = chgcar_input.copy()
-    neighbour_strategy = MinimumDistanceNN(max(chgcar.structure.lattice.abc)/2)
-    structure = chgcar.structure.copy()
+    chgcar = chgcar_input
+    neighbour_strategy = MinimumDistanceNN(max(chgcar.structure.lattice.abc))
+    structure = chgcar.structure
 
     if sublattice_element:
-        unwanted_elements = [element.string for element in structure.species]
+        unwanted_elements = [element.name for element in structure.elements]
         unwanted_elements.remove(sublattice_element)
-
         structure.remove_species(unwanted_elements)
 
     structure_graph = StructureGraph.with_local_env_strategy(structure, neighbour_strategy, weights=True)
@@ -251,21 +250,20 @@ def get_fractional_drop_mst(chgcar_input, sublattice_element=None):
             data['weight'] = (maximum - min(slice)) / maximum
         else:
             data['weight'] = 1e9
-
     return nx.minimum_spanning_tree(graph, weight="weight")
 
-def get_fractional_drop_mst_mean_weight(chgcar):
-    mst = get_fractional_drop_mst(chgcar)
+def get_fractional_drop_mst_weights(chgcar, sublattice_element):
+    mst = get_fractional_drop_mst(chgcar, sublattice_element)
 
-    return mst.size("weight") / mst.size(None)
+    return [data["weight"] for _, __, data in mst.edges(data=True)]
 
-def get_fractional_drop_mst_mean_weight_from_material_id(id_element):
+def get_fractional_drop_mst_weight_from_material_id(id_element):
     material_id, sublattice_element = id_element
 
     try:
         chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
-        return material_id, get_fractional_drop_mst_mean_weight(chgcar)
-    except FileNotFoundError as e:
+        return material_id, get_fractional_drop_mst_weights(chgcar, sublattice_element)
+    except Exception as e:
         print(material_id, e)
         return material_id, np.nan
 
@@ -279,8 +277,8 @@ def get_fractional_drop_msts_from_material_ids(df_material):
 
     inputs = zip(df_material.index, df_material["sublattice_element"])
     
-    p = Pool(6)
+    p = Pool(12)
     output["slices"] = ""
-    for material_id, average_drop in tqdm(p.imap_unordered(get_fractional_drop_mst_mean_weight_from_material_id, inputs), total=len(df_material)):
-        output.at[material_id, "slices"] = average_drop
+    for material_id, drops in tqdm(p.imap_unordered(get_fractional_drop_mst_weight_from_material_id, inputs), total=len(df_material)):
+        output.at[material_id, "slices"] = json.dumps(drops)
     return output
