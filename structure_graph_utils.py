@@ -14,6 +14,7 @@ from tqdm import tqdm
 from scipy.interpolate import RegularGridInterpolator
 from networkx.exception import NetworkXNoPath
 import json
+from copy import deepcopy
 
 CHGCAR_DIRECTORY = Path("D:/materials_project/charge_density/")
 
@@ -55,6 +56,34 @@ def show_structure_graph(structure_graph, frac_coords=False, label=False, label_
 
 
     for i, j, data in structure_graph.graph.edges(data=True):
+        x_y_z = np.stack([pos[i], pos[j]]).T
+        ax.plot(*x_y_z, color="black")
+
+        if label_weights:
+            ax.text(*np.mean((pos[i], pos[j]), axis=0), data["weight"])
+
+    plt.show()
+
+def show_graph(graph, frac_coords=False, label=False, label_weights=False):
+    # Get unique color for each element
+    elements = set(data["element"] for _, data in graph.nodes(data=True))
+    element_colors = dict(zip(elements, cm.rainbow(np.linspace(0, 1, len(elements)))))
+    
+    ax = plt.figure().add_subplot(projection='3d')
+
+    pos = {}
+    for i, data in graph.nodes(data=True):
+        if frac_coords:
+            pos[i] = data["frac_coords"]
+        else:
+            pos[i] = data["coords"]
+
+        ax.scatter(*pos[i], color=element_colors[data["element"]])
+        if label:
+            ax.text(*pos[i], str(i))
+
+
+    for i, j, data in graph.edges(data=True):
         x_y_z = np.stack([pos[i], pos[j]]).T
         ax.plot(*x_y_z, color="black")
 
@@ -136,7 +165,7 @@ def linear_slice(f_i, f_f, jimage, chgcar_input, n=100):
 
 def make_supercell(chgcar_input):
     scale = (3, 3, 3)
-    chgcar = chgcar_input.copy()
+    chgcar = deepcopy(chgcar_input)
     chgcar.structure = chgcar.structure.make_supercell(scale)
     chgcar.data["total"] = np.tile(chgcar.data["total"], scale)
     # interpolator created during initialization, needs updating
@@ -230,7 +259,7 @@ def get_fractional_drop_mst(chgcar_input, sublattice_element=None):
         structure.remove_species(unwanted_elements)
 
     structure_graph = StructureGraph.with_local_env_strategy(structure, neighbour_strategy, weights=True)
-    graph = nx.Graph(structure_graph.graph) # from dimultigraph to graph!
+    graph = nx.MultiGraph(structure_graph.graph) # from dimultigraph to graph!
 
     for node, data in graph.nodes(data=True):
         site = structure_graph.structure[node]
@@ -277,7 +306,7 @@ def get_fractional_drop_msts_from_material_ids(df_material):
 
     inputs = zip(df_material.index, df_material["sublattice_element"])
     
-    p = Pool(12)
+    p = Pool(6)
     output["slices"] = ""
     for material_id, drops in tqdm(p.imap_unordered(get_fractional_drop_mst_weight_from_material_id, inputs), total=len(df_material)):
         output.at[material_id, "slices"] = json.dumps(drops)
