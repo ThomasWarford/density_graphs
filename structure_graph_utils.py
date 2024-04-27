@@ -243,14 +243,15 @@ def get_mst_slices_from_material_ids(df_material, n=30):
 
 
 
-def get_linear_slice_fractional_drop(f_i, f_f, jimage, chgcar_input, n=100):
+def get_linear_slice_fractional_drop(f_i, f_f, jimage, chgcar_input, n=100, peak_range=10):
     slice = linear_slice(f_i, f_f, jimage, chgcar_input, n)
-    maximum = max(slice)
-    return (maximum - min(slice)) / maximum
+    
+    maximum = max((slice[:peak_range], slice[-peak_range:]))
+    return (maximum - min(slice[peak_range:-peak_range])) / maximum
 
 def get_fractional_drop_mst(chgcar_input, sublattice_element=None, n=100, slice=False):
     chgcar = chgcar_input
-    neighbour_strategy = MinimumDistanceNN(max(chgcar.structure.lattice.abc)*0.7)
+    neighbour_strategy = MinimumDistanceNN(max(chgcar.structure.lattice.abc)*1.01)
     structure = chgcar.structure
 
     if sublattice_element:
