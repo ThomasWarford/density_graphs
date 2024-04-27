@@ -289,7 +289,7 @@ def get_fractional_drop_mst_weights(chgcar, sublattice_element):
     return [data["weight"] for _, __, data in mst.edges(data=True)]
 
 def get_fractional_drop_mst_slices(chgcar, sublattice_element):
-    mst = get_fractional_drop_mst(chgcar, sublattice_element, n=25, slice=True)
+    mst = get_fractional_drop_mst(chgcar, sublattice_element, n=100, slice=True)
     return [data["slice"] for _, __, data in mst.edges(data=True)]
 
 def get_fractional_drop_mst_weight_from_material_id(id_element):
