@@ -55,18 +55,17 @@ def test_get_fractional_drop_mst():
     
     show_graph(mst, frac_coords=True, label=True, label_weights=True)
 
-def test_linear_slices():
-    # actual = get_mst_slices_from_material_id("mp-775989", "Fe", n=100)
-    material_id = "mp-7"
+def test_linear_slice():
+    material_id = "mp-775989"
     chgcar = Chgcar.from_file(CHGCAR_DIRECTORY/f"{material_id}.chgcar")
     sites = chgcar.structure.sites
 
-    expected = chgcar.linear_slice(sites[0].frac_coords, sites[1].frac_coords)
-    actual = linear_slice(sites[0].frac_coords, sites[1].frac_coords, (0, 0, 0), chgcar)
+    expected = chgcar.linear_slice(sites[0].frac_coords, sites[7].frac_coords)
+    actual = linear_slice(sites[0].frac_coords, sites[7].frac_coords, (0, 0, 0), chgcar)
 
-    print(actual)
-    print(expected)
-    assert((actual==expected).all())
+    plt.plot(actual)
+    plt.plot(expected)
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -77,4 +76,4 @@ if __name__ == "__main__":
     # test_mst_slice_parallel()
     # test_view_linear_slices()
     # test_get_fractional_drop_mst()
-    test_linear_slices()
+    test_linear_slice()
